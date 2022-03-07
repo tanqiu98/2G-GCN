@@ -1,0 +1,10 @@
+data:
+  name: mphoi
+  path: ${env:PWD}/data/MPHOI/mphoi_ground_truth_labels.json
+  path_zarr: ${env:PWD}/data/MPHOI/mphoi_derived_features/faster_rcnn.zarr
+  path_obb_zarr: ${env:PWD}/data/MPHOI/mphoi_derived_features/object_bounding_boxes.zarr
+  path_hbb_zarr: ${env:PWD}/data/MPHOI/mphoi_derived_features/human_bounding_boxes.zarr
+  path_hps_zarr: ${env:PWD}/data/MPHOI/mphoi_derived_features/human_pose.zarr
+  cross_validation_test_subject: Subject14 # Subject25, Subject14
+  scaling_strategy: null  # null or standard
+  downsampling: 3  # 1 = full FPS, 2 = half FPS, ...

@@ -1,0 +1,21 @@
+metadata:
+  model_name: cad120_baseline
+  input_type: multiple
+parameters:
+  bias: true
+  bidirectional: true
+  hidden_size: 2
+  with_message_passing: true
+optimization:
+  batch_size: 2
+  clip_gradient_at: 0.0
+  epochs: 1
+  learning_rate: 1e-3
+  val_fraction: 0.1
+logging:
+  root_log_dir: ${env:PWD}/outputs/${data.name}/${metadata.model_name}
+  checkpoint_name: "hs${parameters.hidden_size}_e${optimization.epochs}_bs${optimization.batch_size}_\
+                    lr${optimization.learning_rate}_bd-${parameters.bidirectional}_\
+                    mp-${parameters.with_message_passing}_sc-${data.scaling_strategy}_\
+                    gc${optimization.clip_gradient_at}_ds${data.downsampling}_${data.cross_validation_test_subject}"
+  log_dir: ${logging.root_log_dir}/${logging.checkpoint_name}

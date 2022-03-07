@@ -1,0 +1,77 @@
+metadata:
+  model_name: assign
+  input_type: multiple
+parameters:
+  add_segment_length: 0  # length of the segment to the segment-level rnn. 0 is off and 1 is on.
+  add_time_position: 0  # absolute time position to the segment-level rnn. 0 is off and 1 is on.
+  time_position_strategy: s  # input time position to segment [s] or discrete update [u].
+  positional_encoding_style: e  # e [embedding] or p [periodic].
+  attention_style: v3  # v1 [concat], v2 [dot-product], v3 [scaled_dot-product], v4 [general]
+  bias: true
+  cat_level_states: 0  # concatenate first and second level hidden states for predictors MLPs. 0 is off and 1 is on.
+  discrete_networks_num_layers: 1  # depth of the state change detector MLP.
+  discrete_optimization_strategy: gs  # straight-through [st] or gumbel-sigmoid [gs]
+  filter_discrete_updates: true  # maxima filter for soft output of state change detector.
+  hidden_size: 512
+  message_humans_to_human: false  # only meaningful for the bimanual dataset
+  message_human_to_objects: true
+  message_objects_to_human: true
+  message_objects_to_object: true
+  message_segment: true
+  message_type: v2  # v1 [relational] or v2 [non-relational]
+  message_granularity: v1  # v1 [generic] or v2 [specific]
+  message_aggregation: att  # mean_pooling [mp] or attention [att]
+  object_segment_update_strategy: ind  # same_as_human [sah], independent [ind], or conditional_on_human [coh]
+  share_level_mlps: 0  # whether to share [1] or not [0] the prediction MLPs of the levels.
+  update_segment_threshold: 0.1  # [0.0, 1.0)
+optimization:
+  batch_size: 16
+  clip_gradient_at: 0.0
+  epochs: 40
+  learning_rate: 1e-3
+  val_fraction: 0.1
+misc:
+  anticipation_loss_weight: 1.0
+  budget_loss:
+    add: false
+    human_weight: 1.0
+    object_weight: 1.0
+  first_level_loss_weight: 0.0  # if positive, first level does frame-level prediction
+  impose_segmentation_pattern: 0  # 0 [no pattern], 1 [all ones]
+  input_human_segmentation: false
+  input_object_segmentation: false
+  make_attention_distance_based: false  # only meaningful if message_aggregation is attention
+  multi_task_loss_learner: false
+  pretrained: true  # unfortunately I need two entries for the checkpoint name
+  pretrained_path: ${env:PWD}/outputs/cad120/assign/hs512_e40_bs16_lr0.001_sc-None_h2h-False_h2o-True_o2h-True_o2o-True_m-v2-v1-att-v3-False-True_sd-0.5-False_os-ind_dn-1-gs_pf-e0s0_c0_sp-1_ihs-False_ios-False_al-1.0_bl-False-1.0-1.0_sl-False-False-0.0-1.0_fl0-0.0_mt-False_pt-False_gc0.0_ds3_Subject1  # specified parameters must match parameters of the pre-trained model
+  segmentation_loss:
+    add: true
+    pretrain: false
+    sigma: 4.0  # Gaussian smoothing
+    weight: 1.0
+logging:
+  root_log_dir: ${env:PWD}/outputs/${data.name}/${metadata.model_name}
+  checkpoint_name: "hs${parameters.hidden_size}_e${optimization.epochs}_bs${optimization.batch_size}_\
+                    lr${optimization.learning_rate}_sc-${data.scaling_strategy}_\
+                    h2h-${parameters.message_humans_to_human}_\
+                    h2o-${parameters.message_human_to_objects}_\
+                    o2h-${parameters.message_objects_to_human}_\
+                    o2o-${parameters.message_objects_to_object}_\
+                    m-${parameters.message_type}-${parameters.message_granularity}-${parameters.message_aggregation}\
+                    -${parameters.attention_style}-${misc.make_attention_distance_based}-${parameters.message_segment}_\
+                    sd-${parameters.update_segment_threshold}-${parameters.filter_discrete_updates}_\
+                    os-${parameters.object_segment_update_strategy}_\
+                    dn-${parameters.discrete_networks_num_layers}-${parameters.discrete_optimization_strategy}_\
+                    pf-${parameters.positional_encoding_style}${parameters.add_time_position}\
+                    ${parameters.time_position_strategy}${parameters.add_segment_length}_\
+                    c${parameters.cat_level_states}_\
+                    sp-${misc.impose_segmentation_pattern}_\
+                    ihs-${misc.input_human_segmentation}_ios-${misc.input_object_segmentation}_\
+                    al-${misc.anticipation_loss_weight}_\
+                    bl-${misc.budget_loss.add}-${misc.budget_loss.human_weight}-${misc.budget_loss.object_weight}_\
+                    sl-${misc.segmentation_loss.add}-${misc.segmentation_loss.pretrain}\
+                    -${misc.segmentation_loss.sigma}-${misc.segmentation_loss.weight}_\
+                    fl${parameters.share_level_mlps}-${misc.first_level_loss_weight}_\
+                    mt-${misc.multi_task_loss_learner}_pt-${misc.pretrained}_\
+                    gc${optimization.clip_gradient_at}_ds${data.downsampling}_${data.cross_validation_test_subject}"
+  log_dir: ${logging.root_log_dir}/${logging.checkpoint_name}

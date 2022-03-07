@@ -1,0 +1,9 @@
+defaults:
+  - models: 2G-GCN
+  - data: mphoi #mphoi, cad120, bimanual
+hydra:
+  run:
+    dir: outputs/${data.name}/${metadata.model_name}/${logging.checkpoint_name}
+resources:
+  use_gpu: true
+  num_threads: 32

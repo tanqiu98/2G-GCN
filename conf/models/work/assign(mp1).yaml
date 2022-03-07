@@ -1,0 +1,57 @@
+logging:
+  checkpoint_name: hs${parameters.hidden_size}_e${optimization.epochs}_bs${optimization.batch_size}_lr${optimization.learning_rate}_${parameters.update_segment_threshold}_${data.cross_validation_test_subject}
+  log_dir: ${logging.root_log_dir}/${logging.checkpoint_name}
+  root_log_dir: ${env:PWD}/outputs/${data.name}/${metadata.model_name}
+metadata:
+  input_type: multiple
+  model_name: assign
+misc:
+  budget_loss:
+    add: false
+    human_weight: 1.0
+    object_weight: 1.0
+  first_level_loss_weight: 0.0
+  impose_segmentation_pattern: 0
+  input_human_segmentation: false
+  input_object_segmentation: false
+  make_attention_distance_based: false
+  multi_task_loss_learner: false
+  pretrained: true
+  pretrained_path: ${env:PWD}/outputs/mphoi/assign/hs512_e40_bs8_lr0.0008_0.5_Subject14
+  segmentation_loss:
+    add: true
+    pretrain: false
+    sigma: 4.0
+    weight: 1.0
+optimization:
+  batch_size: 8
+  clip_gradient_at: 0.0
+  epochs: 20
+  learning_rate: 0.0008
+  val_fraction: 0.1
+parameters:
+  add_segment_length: 0
+  add_time_position: 0
+  attention_style: v3
+  bias: true
+  cat_level_states: 0
+  discrete_networks_num_layers: 1
+  discrete_optimization_strategy: gs
+  filter_discrete_updates: true
+  hidden_size: 512
+  message_aggregation: att
+  message_granularity: v1
+  message_human_to_objects: true
+  message_humans_to_human: true
+  message_objects_to_human: true
+  message_objects_to_object: true
+  message_segment: true
+  message_type: v2
+  object_segment_update_strategy: ind
+  positional_encoding_style: e
+  share_level_mlps: 0
+  time_position_strategy: s
+  update_segment_threshold: 0.1
+resources:
+  num_threads: 3
+  use_gpu: true

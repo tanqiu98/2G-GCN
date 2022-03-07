@@ -1,0 +1,10 @@
+data:
+  name: bimanual
+  path: ${env:PWD}/data/BimanualActions/bimacs_ground_truth_labels.json
+  path_zarr: ${env:PWD}/data/BimanualActions/bimacs_derived_features/faster_rcnn.zarr
+  path_bb_zarr: ${env:PWD}/data/BimanualActions/bimacs_derived_features/bounding_boxes.zarr
+  path_hp_zarr: ${env:PWD}/data/BimanualActions/bimacs_derived_features/hands_pose.zarr
+  cross_validation_test_subject: 1  # 1, 2, 3, 4, 5, or 6
+  video_id_to_video_fps: ${env:PWD}/data/BimanualActions/bimacs_video_id_to_video_fps.json
+  scaling_strategy: null  # null or standard
+  downsampling: 3  # 1 = full FPS, 2 = half FPS, ...

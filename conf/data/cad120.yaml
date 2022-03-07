@@ -1,0 +1,8 @@
+data:
+  name: cad120
+  path: ${env:PWD}/data/CAD-120/features/preprocessed/cad120data.pickle
+  path_zarr: ${env:PWD}/data/CAD-120/features/faster_rcnn/features.zarr
+  cross_validation_test_subject: Subject4 # Subject1, Subject3, Subject4, or Subject5
+  video_id_to_subject_id: ${env:PWD}/data/CAD-120/dictionaries/video-id_to_subject.txt
+  scaling_strategy: null  # null or standard
+  downsampling: 3  # 1 = full FPS, 2 = half FPS, ...
