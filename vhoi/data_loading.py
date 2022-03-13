@@ -766,13 +766,6 @@ def assemble_bimanual_frame_level_recurrent_human(data, downsampling: int = 1, t
     return xs, ys
 
 
-def exclude_outliers(velo):
-    for i, v in enumerate(abs(velo)):
-        if any(x>50 for x in v):
-            velo[i] = np.zeros((1, 2))
-    return velo
-
-
 def assemble_mphoi_frame_level_recurrent_human(data, downsampling: int = 1, test_data: bool = False):
     # Input
     xs_h1, xs_h2 = [], []
@@ -825,13 +818,10 @@ def assemble_mphoi_frame_level_recurrent_human(data, downsampling: int = 1, test
             if j+1 < len(video):
                 next_h1p = xs_h1p[i][j+1][keypoints]
                 h1p_velo = (next_h1p - h1p)*100
-                #h1p_velo = exclude_outliers(h1p_velo)
                 next_h2p = xs_h2p[i][j+1][keypoints]
                 h2p_velo = (next_h2p - h2p)*100
-                #h2p_velo = exclude_outliers(h2p_velo)
                 next_obb = xs_obb[i][j+1]
                 obb_velo = (next_obb - obb)*100
-                #obb_velo = exclude_outliers(obb_velo)
             else:
                 h1p_velo = np.zeros((9, 2))
                 h2p_velo = np.zeros((9, 2))

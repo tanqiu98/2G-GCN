@@ -3,7 +3,7 @@ import torch.nn as nn
 from torch.nn.parameter import Parameter
 import math
 
-class Skl_gcn(nn.Module):
+class Geo_gcn(nn.Module):
     r"""Applies a spatial temporal graph convolution over an input graph sequence.
     Args:
         node_n (int): Number of joints in the human body
@@ -15,7 +15,7 @@ class Skl_gcn(nn.Module):
                  node_n,
                  in_channels,
                  out_channels):
-        super(Skl_gcn, self).__init__()
+        super(Geo_gcn, self).__init__()
 
         #self.A = Parameter(torch.FloatTensor(node_n,node_n))
         self.joint_embed = embed(in_channels, 64, node_n, norm=True, bias=True)

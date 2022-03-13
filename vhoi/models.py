@@ -9,7 +9,7 @@ from pyrutils.itertools import negative_range
 from pyrutils.torch.distributions import straight_through_gumbel_sigmoid, straight_through_estimator
 from pyrutils.torch.general import cat_valid_tensors
 from pyrutils.torch.models import build_mlp
-from pyrutils.torch.models_gcn import Skl_gcn
+from pyrutils.torch.models_gcn import Geo_gcn
 
 
 class BimanualBaseline(nn.Module):
@@ -178,10 +178,10 @@ class CAD120Baseline(nn.Module):
 class TGGCN(nn.Module):
     def __init__(self, input_size: tuple, num_classes: tuple, hidden_size: int = 128,
                  discrete_networks_num_layers: int = 1, discrete_optimization_strategy: str = 'gumbel-sigmoid',
-                 filter_discrete_updates: bool = False,
-                 message_humans_to_human: bool = False, message_human_to_objects: bool = True,
+                 filter_discrete_updates: bool = False, gcn_node: int = 19,
+                 message_humans_to_human: bool = True, message_human_to_objects: bool = True,
                  message_objects_to_human: bool = True, message_objects_to_object: bool = True,
-                 message_skeleton_to_objects: bool = True, message_skeletons_to_human: bool = True,
+                 message_geometry_to_objects: bool = True, message_geometry_to_human: bool = False,
                  message_segment: bool = False, message_type: str = 'relational', message_granularity: str = 'specific',
                  message_aggregation: str = 'attention', attention_style: str = 'concat',
                  object_segment_update_strategy: str = 'independent', update_segment_threshold: float = 0.5,
@@ -236,12 +236,13 @@ class TGGCN(nn.Module):
         num_subactivities, num_affordances = num_classes
         self.discrete_optimization_strategy = discrete_optimization_strategy
         self.filter_discrete_updates = filter_discrete_updates
+        self.gcn_node = gcn_node
         self.message_humans_to_human = message_humans_to_human
         self.message_human_to_objects = message_human_to_objects
         self.message_objects_to_human = message_objects_to_human
         self.message_objects_to_object = message_objects_to_object
-        self.message_skeleton_to_objects = message_skeleton_to_objects
-        self.message_skeletons_to_human = message_skeletons_to_human
+        self.message_geometry_to_objects = message_geometry_to_objects
+        self.message_geometry_to_human = message_geometry_to_human
         self.message_segment = message_segment
         self.message_type = message_type
         self.message_granularity = message_granularity
@@ -260,12 +261,12 @@ class TGGCN(nn.Module):
         if add_segment_length and positional_encoding_style in {'e', 'embedding'}:
             self.segment_length_mlp = build_mlp([1, hidden_size], activations=['relu'], bias=bias)
 
-        # Skeleton
-        self.skeleton_embedding_gcn = Skl_gcn(26, 4, 128)
-        self.skeleton_embedding_mlp = build_mlp([3328, 2048, hidden_size], ['relu','relu'], bias=bias)
-        self.skeleton_bd_rnn = nn.GRU(hidden_size, hidden_size, num_layers=1, bias=bias, batch_first=True,
+        # geometry
+        self.geometry_embedding_gcn = Geo_gcn(self.gcn_node, 4, 128)
+        self.geometry_embedding_mlp = build_mlp([self.gcn_node*128, 2048, hidden_size], ['relu','relu'], bias=bias)
+        self.geometry_bd_rnn = nn.GRU(hidden_size, hidden_size, num_layers=1, bias=bias, batch_first=True,
                                       bidirectional=True)
-        self.skeleton_bd_embedding_mlp = build_mlp([2 * hidden_size, hidden_size], ['relu'], bias=bias)
+        self.geometry_bd_embedding_mlp = build_mlp([2 * hidden_size, hidden_size], ['relu'], bias=bias)
 
 
         # Human
@@ -278,7 +279,7 @@ class TGGCN(nn.Module):
             human_segment_input_size += hidden_size
             if message_segment:
                 human_segment_input_size += hidden_size
-        if message_skeletons_to_human:
+        if message_geometry_to_human:
             human_segment_input_size += hidden_size
         #    if message_segment:
         #        human_segment_input_size += hidden_size
@@ -299,7 +300,7 @@ class TGGCN(nn.Module):
                                     bidirectional=True)
         self.object_bd_embedding_mlp = build_mlp([2 * hidden_size, hidden_size], ['relu'], bias=bias)
         object_segment_input_size = hidden_size
-        if message_skeleton_to_objects:
+        if message_geometry_to_objects:
             object_segment_input_size += hidden_size
         #    if message_segment:
         #        object_segment_input_size += hidden_size
@@ -451,71 +452,71 @@ class TGGCN(nn.Module):
                         if message_segment:
                             self.objects_to_object_segment_message_att_mlp = build_mlp([2 * hidden_size, 1], ['relu'],
                                                                                        bias=bias)
-        # Skeleton(s) to Human
-        if message_skeletons_to_human:
+        # geometry(s) to Human
+        if message_geometry_to_human:
             if message_type in {'v1', 'relational'}:
-                self.human_skeleton_pairwise_relation_mlp = build_mlp([4 * hidden_size, hidden_size], ['relu'], bias=bias)
-                self.human_skeleton_full_relation_mlp = build_mlp([hidden_size, hidden_size], ['relu'], bias=bias)
+                self.human_geometry_pairwise_relation_mlp = build_mlp([4 * hidden_size, hidden_size], ['relu'], bias=bias)
+                self.human_geometry_full_relation_mlp = build_mlp([hidden_size, hidden_size], ['relu'], bias=bias)
                 if message_segment:
-                    self.human_skeleton_segment_pairwise_relation_mlp = build_mlp([2 * hidden_size, hidden_size], ['relu'],
+                    self.human_geometry_segment_pairwise_relation_mlp = build_mlp([2 * hidden_size, hidden_size], ['relu'],
                                                                                bias=bias)
-                    self.human_skeleton_segment_full_relation_mlp = build_mlp([hidden_size, hidden_size], ['relu'],
+                    self.human_geometry_segment_full_relation_mlp = build_mlp([hidden_size, hidden_size], ['relu'],
                                                                            bias=bias)
             else:  # v2 or non-relational
                 if message_granularity in {'v1', 'generic'}:
-                    self.skeletons_to_human_message_mlp = build_mlp([2 * hidden_size, hidden_size], ['relu'], bias=bias)
+                    self.geometry_to_human_message_mlp = build_mlp([2 * hidden_size, hidden_size], ['relu'], bias=bias)
                     if message_segment:
-                        self.skeletons_to_human_segment_message_mlp = build_mlp([hidden_size, hidden_size], ['relu'],
+                        self.geometry_to_human_segment_message_mlp = build_mlp([hidden_size, hidden_size], ['relu'],
                                                                              bias=bias)
                 else:  # v2 or specific
-                    self.skeletons_to_human_message_mlp = build_mlp([4 * hidden_size, hidden_size], ['relu'], bias=bias)
+                    self.geometry_to_human_message_mlp = build_mlp([4 * hidden_size, hidden_size], ['relu'], bias=bias)
                     if message_segment:
-                        self.skeletons_to_human_segment_message_mlp = build_mlp([2 * hidden_size, hidden_size], ['relu'],
+                        self.geometry_to_human_segment_message_mlp = build_mlp([2 * hidden_size, hidden_size], ['relu'],
                                                                              bias=bias)
                 if message_aggregation in {'att', 'attention'}:
                     if attention_style in {'v4', 'general'}:
-                        self.skeletons_to_human_message_att_mlp = nn.Bilinear(2 * hidden_size, 2 * hidden_size, 1,
+                        self.geometry_to_human_message_att_mlp = nn.Bilinear(2 * hidden_size, 2 * hidden_size, 1,
                                                                            bias=bias)
                         if message_segment:
-                            self.skeletons_to_human_segment_message_att_mlp = nn.Bilinear(hidden_size, hidden_size, 1,
+                            self.geometry_to_human_segment_message_att_mlp = nn.Bilinear(hidden_size, hidden_size, 1,
                                                                                        bias=bias)
                     else:
-                        self.skeletons_to_human_message_att_mlp = build_mlp([4 * hidden_size, 1], ['relu'], bias=bias)
+                        self.geometry_to_human_message_att_mlp = build_mlp([4 * hidden_size, 1], ['relu'], bias=bias)
                         if message_segment:
-                            self.skeletons_to_human_segment_message_att_mlp = build_mlp([2 * hidden_size, 1], ['relu'],
+                            self.geometry_to_human_segment_message_att_mlp = build_mlp([2 * hidden_size, 1], ['relu'],
                                                                                      bias=bias)
-        # Skeleton(s) to Object
-        if message_skeleton_to_objects:
+        # geometry(s) to Object
+        if message_geometry_to_objects:
             if message_type in {'v1', 'relational'}:
-                self.object_skeleton_pairwise_relation_mlp = build_mlp([4 * hidden_size, hidden_size], ['relu'], bias=bias)
-                self.object_skeleton_full_relation_mlp = build_mlp([hidden_size, hidden_size], ['relu'], bias=bias)
+                self.object_geometry_pairwise_relation_mlp = build_mlp([4 * hidden_size, hidden_size], ['relu'], bias=bias)
+                self.object_geometry_full_relation_mlp = build_mlp([hidden_size, hidden_size], ['relu'], bias=bias)
                 if message_segment:
-                    self.object_skeleton_segment_pairwise_relation_mlp = build_mlp([2 * hidden_size, hidden_size],
+                    self.object_geometry_segment_pairwise_relation_mlp = build_mlp([2 * hidden_size, hidden_size],
                                                                                 ['relu'], bias=bias)
-                    self.object_skeleton_segment_full_relation_mlp = build_mlp([hidden_size, hidden_size], ['relu'],
+                    self.object_geometry_segment_full_relation_mlp = build_mlp([hidden_size, hidden_size], ['relu'],
                                                                             bias=bias)
             else:  # v2 or non-relational
                 if message_granularity in {'v1', 'generic'}:
-                    self.skeleton_to_object_message_mlp = build_mlp([2 * hidden_size, hidden_size], ['relu'], bias=bias)
+                    self.geometry_to_object_message_mlp = build_mlp([2 * hidden_size, hidden_size], ['relu'], bias=bias)
                     if message_segment:
-                        self.skeleton_to_object_segment_message_mlp = build_mlp([hidden_size, hidden_size], ['relu'],
+                        self.geometry_to_object_segment_message_mlp = build_mlp([hidden_size, hidden_size], ['relu'],
                                                                              bias=bias)
                 else:  # v2 or specific
-                    self.skeleton_to_object_message_mlp = build_mlp([4 * hidden_size, hidden_size], ['relu'], bias=bias)
+                    self.geometry_to_object_message_mlp = build_mlp([4 * hidden_size, hidden_size], ['relu'], bias=bias)
                     if message_segment:
-                        self.skeleton_to_object_segment_message_mlp = build_mlp([2 * hidden_size, hidden_size], ['relu'],
+                        self.geometry_to_object_segment_message_mlp = build_mlp([2 * hidden_size, hidden_size], ['relu'],
                                                                              bias=bias)
                 if message_aggregation in {'att', 'attention'}:
                     if attention_style in {'v4', 'general'}:
-                        self.skeletons_to_object_message_att_mlp = nn.Bilinear(2 * hidden_size, 2 * hidden_size, 1,
+                        self.geometry_to_object_message_att_mlp = nn.Bilinear(2 * hidden_size, 2 * hidden_size, 1,
                                                                             bias=bias)
                         if message_segment:
-                            self.skeletons_to_object_segment_message_att_mlp = nn.Bilinear(hidden_size, hidden_size, 1,
+                            self.geometry_to_object_segment_message_att_mlp = nn.Bilinear(hidden_size, hidden_size, 1,
                                                                                         bias=bias)
                     else:
-                        self.skeletons_to_object_message_att_mlp = build_mlp([4 * hidden_size, 1], ['relu'], bias=bias)
+                        self.geometry_to_object_message_att_mlp = build_mlp([4 * hidden_size, 1], ['relu'], bias=bias)
                         if message_segment:
-                            self.skeletons_to_object_segment_message_att_mlp = build_mlp([2 * hidden_size, 1], ['relu'],
+                            self.geometry_to_object_segment_message_att_mlp = build_mlp([2 * hidden_size, 1], ['relu'],
                                                                                       bias=bias)
 
         # Discrete MLPs
@@ -524,7 +525,7 @@ class TGGCN(nn.Module):
             update_human_segment_input_size += hidden_size
         if message_objects_to_human:
             update_human_segment_input_size += hidden_size
-        if message_skeletons_to_human:
+        if message_geometry_to_human:
             update_human_segment_input_size += hidden_size
         if add_time_position and time_position_strategy == 'u':
             update_human_segment_input_size += hidden_size
@@ -539,14 +540,14 @@ class TGGCN(nn.Module):
                 update_object_segment_input_size += hidden_size
             if message_objects_to_object:
                 update_object_segment_input_size += hidden_size
-            if message_skeleton_to_objects:
+            if message_geometry_to_objects:
                 update_object_segment_input_size += hidden_size
             if add_time_position and time_position_strategy == 'u':
                 update_object_segment_input_size += hidden_size
             dims = [update_object_segment_input_size] + [hidden_size] * num_discrete_hidden_layers + [1]
             self.update_object_segment_mlp = build_mlp(dims, activations, bias=bias)
 
-        # skeleton segment update is the same as human
+        # geometry segment update is the same as human
 
         # Recognition/Prediction MLPs
         label_mlps_input_size = 2 * hidden_size
@@ -578,11 +579,11 @@ class TGGCN(nn.Module):
                 self.object_frame_prediction_mlp = build_mlp([2 * hidden_size, num_affordances],
                                                              [{'name': 'logsoftmax', 'dim': -1}], bias=bias)
 
-        # skeleton no need predict or segment
+        # geometry no need predict or segment
 
     def forward(self, x_human, x_objects, objects_mask, human_segmentation=None, objects_segmentation=None,
                 human_human_distances=None, human_object_distances=None, object_object_distances=None,
-                #human_skeleton_distances=None, skeleton_object_distances=None,
+                #human_geometry_distances=None, geometry_object_distances=None,
                 steps_per_example=None, inspect_model=False):
         """Forward input tensors through the FrameLevelHumanObjectRNN.
 
@@ -628,19 +629,25 @@ class TGGCN(nn.Module):
         ax_hf = [[] for _ in range(num_humans)]
 
         ### gcn ###
-        x_human, x_skeleton = torch.split(x_human, [2048, 104], dim=-1)
-        x_skeleton = x_skeleton[:, :, 0, :]
-        bs, t, vw = x_skeleton.size()
-        x_skeleton = x_skeleton.view(bs, t, vw // 4, 4)
-        x_skeleton = self.skeleton_embedding_gcn(x_skeleton)
-        x_skeleton = x_skeleton.unsqueeze(2)
-        x_skeleton = x_skeleton.view(bs, t, 1, x_skeleton.shape[3] * x_skeleton.shape[4]) # 3328
-        x_human, x_objects, x_skeleton = self.human_embedding_mlp(x_human), self.object_embedding_mlp(x_objects), self.skeleton_embedding_mlp(x_skeleton)
+        if x_human.shape[3] == 2124:                   # CAD120
+            x_human, x_geometry = torch.split(x_human, [2048, 76], dim=-1)
+            x_geometry = x_geometry.squeeze(2)
+        elif x_human.shape[3] == 2168:                 # Bimacs
+            x_human, x_geometry = torch.split(x_human, [2048, 120], dim=-1)
+            x_geometry = x_geometry[:, :, 0, :]
+        else:                                          # MPHOI (2152)
+            x_human, x_geometry = torch.split(x_human, [2048, 104], dim=-1)
+            x_geometry = x_geometry[:, :, 0, :]
+        bs, t, vw = x_geometry.size()
+        x_geometry = x_geometry.view(bs, t, vw // 4, 4)
+        x_geometry = self.geometry_embedding_gcn(x_geometry)
+        x_geometry = x_geometry.view(bs, t, 1, x_geometry.shape[2] * x_geometry.shape[3]) # 3328
+        x_human, x_objects, x_geometry = self.human_embedding_mlp(x_human), self.object_embedding_mlp(x_objects), self.geometry_embedding_mlp(x_geometry)
 
         # Frame-level BiRNNs
         h_hf, h_hfr = self._process_frame_level_rnn(x_human, self.human_bd_rnn, self.human_bd_embedding_mlp)
         h_of, h_ofr = self._process_frame_level_rnn(x_objects, self.object_bd_rnn, self.object_bd_embedding_mlp)
-        h_sf, h_sfr = self._process_frame_level_rnn(x_skeleton, self.skeleton_bd_rnn, self.skeleton_bd_embedding_mlp)
+        h_sf, h_sfr = self._process_frame_level_rnn(x_geometry, self.geometry_bd_rnn, self.geometry_bd_embedding_mlp)
         # Optional: add time position to discrete updates
         num_steps = x_human.size(1)
         ignore_division_by_number_of_steps = self.positional_encoding_style in {'p', 'periodic'}
@@ -679,12 +686,12 @@ class TGGCN(nn.Module):
                                                                      objects_mask, ho_dists=ho_dists)
                     ax_hf[h].append(o2h_faw)
                 m_shth = None
-                if self.message_skeletons_to_human:
+                if self.message_geometry_to_human:
                     #try:
-                    #    hs_dists = human_skeleton_distances[:, t, h]
+                    #    hs_dists = human_geometry_distances[:, t, h]
                     #except TypeError:
                     #    hs_dists = None
-                    m_shth = self._skeletons_to_human_message(x_skeleton[:, t], x_hfth, h_sf[:, t], h_hfth,
+                    m_shth = self._geometry_to_human_message(x_geometry[:, t], x_hfth, h_sf[:, t], h_hfth,
                                                                        hs_dists=None)#hs_dists)
                 try:
                     u_hsth = u_hsths = human_segmentation[:, t:t + 1, h]
@@ -711,12 +718,12 @@ class TGGCN(nn.Module):
                                                             oh_dists=oh_dists)
                     m_hotk = m_hotk * objects_mask[:, k:k + 1]
                 m_sotk = None
-                if self.message_skeleton_to_objects:
+                if self.message_geometry_to_objects:
                     #try:
-                    #    os_dists = skeleton_object_distances[:, t, :, k]
+                    #    os_dists = geometry_object_distances[:, t, :, k]
                     #except TypeError:
                     #    os_dists = None
-                    m_sotk = self._skeletons_to_object_message(x_skeleton[:, t], x_oftk, h_sf[:, t], h_oftk,
+                    m_sotk = self._geometry_to_object_message(x_geometry[:, t], x_oftk, h_sf[:, t], h_oftk,
                                                             os_dists=None)#os_dists)
                     m_sotk = m_sotk * objects_mask[:, k:k + 1]
                 m_ootk = None
@@ -1372,38 +1379,38 @@ class TGGCN(nn.Module):
                 mg_oot = torch.sum(att_weights * mg_oot, dim=1)
         return mg_oot
 
-    # skeleton to object
-    def _skeletons_to_object_message(self, x_sft, x_oftk, h_sft, h_oftk, os_dists=None):
+    # geometry to object
+    def _geometry_to_object_message(self, x_sft, x_oftk, h_sft, h_oftk, os_dists=None):
         """Compute human to an object message.
 
         For now, we assume that all humans are real.
 
         Arguments:
             x_sft - Tensor of shape (batch_size, num_humans, hidden_size) containing the frame-level input for the
-                skeletons at time step t.
+                geometry at time step t.
             x_oftk - Tensor of shape (batch_size, hidden_size) containing the frame-level input for the k-th object
                 at time step t.
             h_sft - Tensor of shape (batch_size, num_humans, hidden_size) containing the frame-level hidden state for
-                the skeletons at time step t.
+                the geometry at time step t.
             h_oftk - Tensor of shape (batch_size, hidden_size) containing frame-level hidden state of the k-th object
                 at time step t.
             os_dists - An optional tensor of shape (batch_size, num_humans) containing the distances between the k-th
-                object and the skeletons. Only meaningful in case message aggregation is attention, in which case the
-                attention weights are dependent on the distance between object and skeletons.
+                object and the geometry. Only meaningful in case message aggregation is attention, in which case the
+                attention weights are dependent on the distance between object and geometry.
         Returns:
-            A tensor of shape (batch_size, hidden_size) containing the message from the skeletons to the k-th object.
+            A tensor of shape (batch_size, hidden_size) containing the message from the geometry to the k-th object.
         """
         receiver = torch.cat([x_oftk, h_oftk], dim=-1)
         senders = torch.cat([x_sft, h_sft], dim=-1)
         senders_mask = torch.ones(senders.size()[:2], dtype=senders.dtype, device=senders.device)
         if self.message_type in {'v1', 'relational'}:
             hok_message = compute_relational_message(receiver, senders, senders_mask,
-                                                     f=self.object_skeleton_full_relation_mlp,
-                                                     g=self.object_skeleton_pairwise_relation_mlp)
+                                                     f=self.object_geometry_full_relation_mlp,
+                                                     g=self.object_geometry_pairwise_relation_mlp)
         else:  # v2 or non-relational
             hok_message = compute_non_relational_message(receiver, senders, senders_mask,
                                                          granularity=self.message_granularity,
-                                                         message_fn=self.skeleton_to_object_message_mlp)
+                                                         message_fn=self.geometry_to_object_message_mlp)
             if self.message_aggregation in {'mp', 'mean_pooling'}:
                 num_real_senders = torch.sum(senders_mask, dim=1, keepdim=True)
                 num_real_senders = torch.clamp(num_real_senders, min=1.0)
@@ -1412,45 +1419,45 @@ class TGGCN(nn.Module):
                 if os_dists is None:
                     att_weights = compute_attention_weights(receiver, senders, senders_mask,
                                                             attention_style=self.attention_style,
-                                                            attention_fn=self.skeletons_to_object_message_att_mlp)
+                                                            attention_fn=self.geometry_to_object_message_att_mlp)
                 else:
                     att_weights = compute_distance_based_attention_weights(os_dists, senders_mask)
                 att_weights = torch.unsqueeze(att_weights, dim=-1)
                 hok_message = torch.sum(att_weights * hok_message, dim=1)
         return hok_message
 
-    # skeleton to human
-    def _skeletons_to_human_message(self, x_sft, x_hftk, h_sft, h_hftk, hs_dists=None):
+    # geometry to human
+    def _geometry_to_human_message(self, x_sft, x_hftk, h_sft, h_hftk, hs_dists=None):
         """Compute human to an object message.
 
         For now, we assume that all humans are real.
 
         Arguments:
             x_sft - Tensor of shape (batch_size, num_humans, hidden_size) containing the frame-level input for the
-                skeletons at time step t.
+                geometry at time step t.
             x_hftk - Tensor of shape (batch_size, hidden_size) containing the frame-level input for the k-th human
                 at time step t.
             h_sft - Tensor of shape (batch_size, num_humans, hidden_size) containing the frame-level hidden state for
-                the skeletons at time step t.
+                the geometry at time step t.
             h_hftk - Tensor of shape (batch_size, hidden_size) containing frame-level hidden state of the k-th human
                 at time step t.
             hs_dists - An optional tensor of shape (batch_size, num_humans) containing the distances between the k-th
-                human and the skeletons. Only meaningful in case message aggregation is attention, in which case the
-                attention weights are dependent on the distance between human and skeletons.
+                human and the geometry. Only meaningful in case message aggregation is attention, in which case the
+                attention weights are dependent on the distance between human and geometry.
         Returns:
-            A tensor of shape (batch_size, hidden_size) containing the message from the skeletons to the k-th human.
+            A tensor of shape (batch_size, hidden_size) containing the message from the geometry to the k-th human.
         """
         receiver = torch.cat([x_hftk, h_hftk], dim=-1)
         senders = torch.cat([x_sft, h_sft], dim=-1)
         senders_mask = torch.ones(senders.size()[:2], dtype=senders.dtype, device=senders.device)
         if self.message_type in {'v1', 'relational'}:
             hok_message = compute_relational_message(receiver, senders, senders_mask,
-                                                     f=self.human_skeleton_full_relation_mlp,
-                                                     g=self.human_skeleton_pairwise_relation_mlp)
+                                                     f=self.human_geometry_full_relation_mlp,
+                                                     g=self.human_geometry_pairwise_relation_mlp)
         else:  # v2 or non-relational
             hok_message = compute_non_relational_message(receiver, senders, senders_mask,
                                                          granularity=self.message_granularity,
-                                                         message_fn=self.skeletons_to_human_message_mlp)
+                                                         message_fn=self.geometry_to_human_message_mlp)
             if self.message_aggregation in {'mp', 'mean_pooling'}:
                 num_real_senders = torch.sum(senders_mask, dim=1, keepdim=True)
                 num_real_senders = torch.clamp(num_real_senders, min=1.0)
@@ -1459,7 +1466,7 @@ class TGGCN(nn.Module):
                 if hs_dists is None:
                     att_weights = compute_attention_weights(receiver, senders, senders_mask,
                                                             attention_style=self.attention_style,
-                                                            attention_fn=self.skeletons_to_human_message_att_mlp)
+                                                            attention_fn=self.geometry_to_human_message_att_mlp)
                 else:
                     att_weights = compute_distance_based_attention_weights(hs_dists, senders_mask)
                 att_weights = torch.unsqueeze(att_weights, dim=-1)
@@ -1709,41 +1716,6 @@ def compute_non_relational_message(receiver, senders, senders_mask, granularity,
     mx_sr = torch.stack(mx_sr, dim=1)
     return mx_sr
 
-
-def compute_skl_attention_weights(query, keys, keys_mask, attention_style, attention_fn=None):
-    """Compute attention weights.
-
-    We assume query_size and key_size are the same.
-
-    Arguments:
-        query - A tensor of shape (batch_size, query_size) containing the query features. n,t,h,1152   n,t,h,2048,1
-        keys - A tensor of shape (batch_size, num_keys, key_size) containing the key features.
-        keys_mask - A binary tensor of shape (batch_size, num_keys) specifying whether a key is real or virtual.
-        attention_style - How to perform the attention.
-        attention_fn - A PyTorch function to compute the similarity between the query and a key.
-    Returns:
-        A tensor of shape (batch_size, num_keys) containing the attention weights.
-    """
-    att_weights = []
-    num_senders = keys.size(3)
-    for s in range(num_senders):
-        key = keys[:, :, :, s]
-        if attention_style in {'v1', 'concat'}:
-            att_fn_input = torch.cat([query, key], dim=-1)
-            att_weight = attention_fn(att_fn_input)
-        elif attention_style in {'v2', 'dot-product', 'v3', 'scaled_dot-product'}:
-            att_weight = torch.sum(query * key, dim=-1, keepdim=True)
-            if attention_style in {'v3', 'scaled_dot-product'}:
-                att_weight = att_weight / math.sqrt(key.size(-1))
-        else:  # v4 or general
-            att_weight = torch.relu(attention_fn(query, key))
-        att_weights.append(att_weight)
-    att_weights = torch.cat(att_weights, dim=-1)
-    neg_inf_values = torch.full_like(att_weights, fill_value=float('-inf'))
-    att_weights = torch.where(keys_mask.bool(), att_weights, neg_inf_values)
-    att_weights = torch.nn.functional.softmax(att_weights, dim=-1)
-    att_weights = torch.where(torch.isnan(att_weights), torch.zeros_like(att_weights), att_weights)
-    return att_weights
 
 def compute_attention_weights(query, keys, keys_mask, attention_style, attention_fn=None):
     """Compute attention weights.
