@@ -697,7 +697,7 @@ def assemble_bimanual_frame_level_recurrent_human(data, downsampling: int = 1, t
         for j, frame in enumerate(video):
             lhp = xs_lhp[i][j][keypoints]     # left hand pose  (6*2)
             rhp = xs_rhp[i][j][keypoints]     # right hand pose (6*2)
-            obb = xs_obb[i][j]     # object bounding box (18*2)
+            obb = xs_obb[i][j]                # object bounding box (18*2)
             # velocity
             if j+1 < len(video):
                 next_lhp = xs_lhp[i][j+1][keypoints]
@@ -806,7 +806,7 @@ def assemble_mphoi_frame_level_recurrent_human(data, downsampling: int = 1, test
     # add context features to xs_h1, xs_h2
     hhh1 = list()
     hhh2 = list()
-    keypoints = [1, 2, 4, 6, 7, 11, 13, 14, 27]         # human upper body keypoints [0, 2, 5, 6, 8, 12, 13, 15, 26] 
+    keypoints = [1, 2, 4, 6, 7, 11, 13, 14, 27] # upper body keypoints
     for i, video in enumerate(xs_h1):
         hh1 = list()
         hh2 = list()
