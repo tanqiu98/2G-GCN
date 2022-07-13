@@ -17,7 +17,6 @@ class Geo_gcn(nn.Module):
                  out_channels):
         super(Geo_gcn, self).__init__()
 
-        #self.A = Parameter(torch.FloatTensor(node_n,node_n))
         self.joint_embed = embed(in_channels, 64, node_n, norm=True, bias=True)
         self.get_s = compute_similarity(64, 128, bias = True)
         self.weight = Parameter(torch.FloatTensor(64, out_channels))
@@ -27,15 +26,14 @@ class Geo_gcn(nn.Module):
     def reset_parameters(self):
         stdv = 1. / math.sqrt(self.weight.size(1))
         self.weight.data.uniform_(-stdv, stdv)
-        #self.A.data.uniform_(-stdv, stdv)
 
     def forward(self, x):
-        x = x.permute(0, 3, 2, 1).contiguous()
         x = self.joint_embed(x)
         s = self.get_s(x)
         x = x.permute(0, 3, 2, 1).contiguous()
         x = s.matmul(x)
         x = torch.matmul(x, self.weight)
+        x = x.permute(0, 3, 2, 1).contiguous()
         return x
 
 class norm_data(nn.Module):

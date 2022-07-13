@@ -178,7 +178,7 @@ class CAD120Baseline(nn.Module):
 class TGGCN(nn.Module):
     def __init__(self, input_size: tuple, num_classes: tuple, hidden_size: int = 128,
                  discrete_networks_num_layers: int = 1, discrete_optimization_strategy: str = 'gumbel-sigmoid',
-                 filter_discrete_updates: bool = False, gcn_node: int = 19,
+                 filter_discrete_updates: bool = False, gcn_node: int = 26,
                  message_humans_to_human: bool = True, message_human_to_objects: bool = True,
                  message_objects_to_human: bool = True, message_objects_to_object: bool = True,
                  message_geometry_to_objects: bool = True, message_geometry_to_human: bool = False,
@@ -583,7 +583,6 @@ class TGGCN(nn.Module):
 
     def forward(self, x_human, x_objects, objects_mask, human_segmentation=None, objects_segmentation=None,
                 human_human_distances=None, human_object_distances=None, object_object_distances=None,
-                #human_geometry_distances=None, geometry_object_distances=None,
                 steps_per_example=None, inspect_model=False):
         """Forward input tensors through the FrameLevelHumanObjectRNN.
 
@@ -640,8 +639,10 @@ class TGGCN(nn.Module):
             x_geometry = x_geometry[:, :, 0, :]
         bs, t, vw = x_geometry.size()
         x_geometry = x_geometry.view(bs, t, vw // 4, 4)
+        x_geometry = x_geometry.permute(0, 3, 2, 1).contiguous()
         x_geometry = self.geometry_embedding_gcn(x_geometry)
-        x_geometry = x_geometry.view(bs, t, 1, x_geometry.shape[2] * x_geometry.shape[3]) # 3328
+        x_geometry = x_geometry.unsqueeze(2)
+        x_geometry = x_geometry.view(bs, t, 1, x_geometry.shape[1] * x_geometry.shape[3])
         x_human, x_objects, x_geometry = self.human_embedding_mlp(x_human), self.object_embedding_mlp(x_objects), self.geometry_embedding_mlp(x_geometry)
 
         # Frame-level BiRNNs

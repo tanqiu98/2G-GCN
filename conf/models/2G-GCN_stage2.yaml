@@ -12,9 +12,9 @@ parameters:
   discrete_networks_num_layers: 1  # depth of the state change detector MLP.
   discrete_optimization_strategy: gs  # straight-through [st] or gumbel-sigmoid [gs]
   filter_discrete_updates: true  # maxima filter for soft output of state change detector.
-  gcn_node: 19 # 19 for cad120, 30 for bimanual, 26 for mphoi
-  hidden_size: 512
-  message_humans_to_human: false  # only meaningful for the bimanual and mphoi dataset
+  gcn_node: 26 # 19 for cad120, 30 for bimanual, 26 for mphoi
+  hidden_size: 512 # 512 for cad120 & mphoi, 64 for bimanual
+  message_humans_to_human: true  # only meaningful for bimanual and mphoi dataset; false for cad120
   message_human_to_objects: true
   message_objects_to_human: true
   message_objects_to_object: true
@@ -28,10 +28,10 @@ parameters:
   share_level_mlps: 0  # whether to share [1] or not [0] the prediction MLPs of the levels.
   update_segment_threshold: 0.1  # [0.0, 1.0)
 optimization:
-  batch_size: 16
+  batch_size: 8  # mphoi:8; cad120:16; bimanual:32
   clip_gradient_at: 0.0
-  epochs: 50
-  learning_rate: 1e-3
+  epochs: 40 # # cad120 & mphoi:40; bimanual: 60
+  learning_rate: 1e-4  # mphoi:1e-4; cad120 & bimanual:1e-3
   val_fraction: 0.1
 misc:
   anticipation_loss_weight: 1.0
@@ -46,7 +46,7 @@ misc:
   make_attention_distance_based: false  # only meaningful if message_aggregation is attention
   multi_task_loss_learner: false
   pretrained: true  # unfortunately I need two entries for the checkpoint name
-  pretrained_path: ${env:PWD}/outputs/cad120/2G-GCN/hs512_e50_bs16_lr0.001_0.5_Subject1 # specified parameters must match parameters of the pre-trained model
+  pretrained_path: ${env:PWD}/outputs/cad120/2G-GCN/hs512_e50_bs16_lr0.0001_0.5_Subject1 # specified parameters must match parameters of the pre-trained model
   segmentation_loss:
     add: true
     pretrain: false

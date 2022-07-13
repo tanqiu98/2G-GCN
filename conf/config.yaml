@@ -1,6 +1,6 @@
 defaults:
   - models: 2G-GCN
-  - data: cad120 #mphoi, cad120, bimanual
+  - data: mphoi #mphoi, cad120, bimanual
 hydra:
   run:
     dir: outputs/${data.name}/${metadata.model_name}/${logging.checkpoint_name}
