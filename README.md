@@ -23,9 +23,7 @@ edit the associated model .yaml file in `./conf/models/` and the associated data
 editing the files, just run `python train.py`.
 
 ## Test the Model
-Examples on MPHOI-72: when you get pre-trained models for all subject groups, you can get the cross-validation result by:
-
-> python -W ignore predict.py --pretrained_model_dir ./outputs/mphoi/2G-GCN/hs512_e40_bs8_lr0.0001_0.1_Subject14 --cross_validate
+Examples on MPHOI-72: when you get pre-trained models for all subject groups, you can get the cross-validation result by `python -W ignore predict.py --pretrained_model_dir ./outputs/mphoi/2G-GCN/hs512_e40_bs8_lr0.0001_0.1_Subject14 --cross_validate`.
 
 ## Citation
 If you use our code or data, please cite:
