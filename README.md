@@ -1,8 +1,10 @@
 # Multi-person Human-object Interaction Recognition in Videos
 Code for the ECCV'22 paper "Geometric Features Informed Multi-person Human-object Interaction Recognition in Videos".
-
-![](figures/geometric_features.png)
 ![](figures/framework.png)
+
+## MPHOI-72 RGB-D Dataset
+![](figures/geometric_features.png)
+Link: [download](https://collections.durham.ac.uk/collections/r19g54xh706).
 
 ## Environment Setup
 First please create an appropriate environment using conda: 
