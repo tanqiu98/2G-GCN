@@ -7,7 +7,7 @@ Code for the ECCV'22 paper "Geometric Features Informed Multi-person Human-objec
 You can find all RGB-D frames and geometric annotations in the two links below. We list two ways to download datasets in case one of the services collapses.
 
 Durham University Library and Collections: [download](https://collections.durham.ac.uk/collections/r19g54xh706).  
-OneDrive: [download](https://luisweb-my.sharepoint.com/:f:/g/personal/qtq_luisli_org/EpNETM3VcZFAtteBbezTZjwBwTL2SQ6CWziycbK8r6Vx8Q?e=eatHgr). 
+OneDrive: [download](https://luisweb-my.sharepoint.com/:f:/g/personal/qtq_luisli_org/EpNETM3VcZFAtteBbezTZjwBwTL2SQ6CWziycbK8r6Vx8Q?e=6G65SD). 
 
 ## Environment Setup
 First please create an appropriate environment using conda: 
